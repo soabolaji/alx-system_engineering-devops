@@ -1,0 +1,10 @@
+bash(0)> echo hello world
+bash(1)> pwd
+bash(2)> ls
+bash(3)> cat access.log
+bash(4)> tail -5 access.log
+bash(5)> touch take-the-command-challenge
+bash(6)> mkdir -p tmp/files
+bash(7)> cp take-the-command-challenge tmp/files
+bash(8)> mv take-the-command-challenge tmp/files
+bash(9)> ln -s tmp/files/take-the-command-challenge take-the-command-challenge
