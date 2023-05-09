@@ -2,10 +2,12 @@ global
         log /dev/log    local0
         log /dev/log    local1 notice
         chroot /var/lib/haproxy
-        stats socket /run/haproxy/admin.sock mode 660 level admin expose-fd listeners
+        stats socket /run/haproxy/admin.sock mode 660 level admin
         stats timeout 30s
         user haproxy
         group haproxy
+        maxconn 2048
+        tune.ssl.default-dh-param 2048
         daemon
 
         # Default SSL material locations
@@ -22,11 +24,11 @@ defaults
         mode    http
         option  httplog
         option  dontlognull
-	retries 3
         timeout connect 10s
-	timeout client  5s
+        timeout client  10s
         timeout server  10s
-        timeout http-request 10s
+        option forwardfor
+        option http-server-close
         errorfile 400 /etc/haproxy/errors/400.http
         errorfile 403 /etc/haproxy/errors/403.http
         errorfile 408 /etc/haproxy/errors/408.http
@@ -35,39 +37,24 @@ defaults
         errorfile 503 /etc/haproxy/errors/503.http
         errorfile 504 /etc/haproxy/errors/504.http
 
-        #--$DOMAIN_NAME-params-begin--
-frontend http-frontend
+frontend http
         bind *:80
-        http-request set-header X-Forwarded-Proto http
-        redirect scheme https code 301 if !{ ssl_fc }
-        acl letsencrypt-acl path_beg /.well-known/acme-challenge/
-        use_backend le-certbot-backend if letsencrypt-acl
-
-        default_backend http-backend
-
-
-frontend https-frontend
-        bind *:443 ssl crt /etc/haproxy/certs/www.soabolaji.tech.pem
-        mode http
-        option forwardfor
-        option http-server-close
         http-request set-header X-Forwarded-Proto https
-        default_backend http-backend 
+        default_backend www-backend
 
-	# define backend
-backend http-backend
-        balance roundrobin
+
+frontend https
+        bind *:443 ssl crt /etc/haproxy/certs/www.soabolaji.tech.pem
+        http-request set-header X-Forwarded-Proto https
+        acl letsencrypt-acl path_beg /.well-known/acme-challenge/
+        use_backend letsencrypt-backend if letsencrypt-acl
+        default_backend www-backend
+
+
+backend www-backend
         redirect scheme https if !{ ssl_fc }
         server 184863-web-01 100.25.30.138:80 check
         server 184863-web-02 54.237.127.66:80 check
 
-backend le-certbot-backend
-        server letsencrypt 127.0.0.1:8888100-redirect_http_to_https
-
-
-backend https-backend
-        balance roundrobin
-        redirect scheme https if !{ ssl_fc }
-        server 184863-web-01 100.25.30.138:443 ssl verify none
-        server 184863-web-02 54.237.127.66:443 ssl verify none
-        #--$DOMAIN_NAME-params-end--
+backend letsencrypt-backend
+   server letsencrypt 127.0.0.1:54321
